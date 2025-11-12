@@ -96,6 +96,19 @@ def insert_order(order_json: dict):
         bq.insert_rows_json(TABLE_ITMS, items)
 
 
+@app.get("/test_order/{order_id}")
+def test_order(order_id: int):
+    """Prueba directa para ver qué responde la API del pedido."""
+    url = f"{API_BASE}/orders/{order_id}/full"
+    r = requests.get(url, headers=HEADERS, timeout=30)
+
+    return {
+        "url": url,
+        "status_code": r.status_code,
+        "text_snippet": r.text[:500],  # primeros 500 caracteres
+    }
+
+
 @app.get("/descargar_pedidos")
 def run_incremental():
     last_id = get_last_id()
