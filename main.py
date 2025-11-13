@@ -167,34 +167,38 @@ def sync_tiendas():
             "updated_at": now
         })
 
-        table = bigquery.Table(
-            TABLE_STORES,
-            schema=[
-                bigquery.SchemaField("store_id", "INT64"),
-                bigquery.SchemaField("email", "STRING"),
-                bigquery.SchemaField("marketing_emails", "STRING"),
-                bigquery.SchemaField("dest_merc", "STRING"),
-                bigquery.SchemaField("zona_ventas", "STRING"),
-                bigquery.SchemaField("cliente_unico", "INT64"),
-                bigquery.SchemaField("store_name", "STRING"),
-                bigquery.SchemaField("address", "STRING"),
-                bigquery.SchemaField("city", "STRING"),
-                bigquery.SchemaField("franquiciado", "STRING"),
-                bigquery.SchemaField("phone1", "STRING"),
-                bigquery.SchemaField("phone2", "STRING"),
-                bigquery.SchemaField("updated_at", "TIMESTAMP")
-            ]
-        )
-        
-        try:
-            bq.create_table(table)
-        except Exception:
-            pass  # ya existe, no pasa nada
-        
-        errors = bq.insert_rows_json(TABLE_STORES, rows)
+    # Crear tabla si no existe (FUERA del bucle)
+    table = bigquery.Table(
+        TABLE_STORES,
+        schema=[
+            bigquery.SchemaField("store_id", "INT64"),
+            bigquery.SchemaField("email", "STRING"),
+            bigquery.SchemaField("marketing_emails", "STRING"),
+            bigquery.SchemaField("dest_merc", "STRING"),
+            bigquery.SchemaField("zona_ventas", "STRING"),
+            bigquery.SchemaField("cliente_unico", "INT64"),
+            bigquery.SchemaField("store_name", "STRING"),
+            bigquery.SchemaField("address", "STRING"),
+            bigquery.SchemaField("city", "STRING"),
+            bigquery.SchemaField("franquiciado", "STRING"),
+            bigquery.SchemaField("phone1", "STRING"),
+            bigquery.SchemaField("phone2", "STRING"),
+            bigquery.SchemaField("updated_at", "TIMESTAMP")
+        ]
+    )
+
+    try:
+        bq.create_table(table)
+    except Exception:
+        pass  # ya existe, ok
+
+    # Vaciar contenido sin borrar tabla
+    bq.query(f"TRUNCATE TABLE `{TABLE_STORES}`").result()
+
+    # Insertar todas las filas a la vez
+    errors = bq.insert_rows_json(TABLE_STORES, rows)
 
     if errors:
         return {"error": errors}
 
     return {"ok": True, "rows": len(rows)}
-
