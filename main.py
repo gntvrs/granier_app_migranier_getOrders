@@ -151,12 +151,15 @@ def sync_tiendas():
     now = datetime.utcnow().isoformat()
 
     for t in data:
+        zona_raw = t.get("zona_ventas")
+        zona_str = ",".join(zona_raw) if isinstance(zona_raw, list) else zona_raw
+
         rows.append({
             "store_id": t.get("id"),
             "email": t.get("email"),
             "marketing_emails": t.get("marketing_emails"),
             "dest_merc": t.get("dest_merc"),
-            "zona_ventas": t.get("zona_ventas"),
+            "zona_ventas": zona_str,
             "cliente_unico": t.get("cliente_unico"),
             "store_name": t.get("store_name"),
             "address": t.get("address"),
@@ -167,36 +170,17 @@ def sync_tiendas():
             "updated_at": now
         })
 
-    # Crear tabla si no existe (FUERA del bucle)
-    table = bigquery.Table(
-        TABLE_STORES,
-        schema=[
-            bigquery.SchemaField("store_id", "INT64"),
-            bigquery.SchemaField("email", "STRING"),
-            bigquery.SchemaField("marketing_emails", "STRING"),
-            bigquery.SchemaField("dest_merc", "STRING"),
-            bigquery.SchemaField("zona_ventas", "STRING"),
-            bigquery.SchemaField("cliente_unico", "INT64"),
-            bigquery.SchemaField("store_name", "STRING"),
-            bigquery.SchemaField("address", "STRING"),
-            bigquery.SchemaField("city", "STRING"),
-            bigquery.SchemaField("franquiciado", "STRING"),
-            bigquery.SchemaField("phone1", "STRING"),
-            bigquery.SchemaField("phone2", "STRING"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP")
-        ]
-    )
-
-    try:
-        bq.create_table(table)
-    except Exception:
-        pass  # ya existe, ok
-
-    # Vaciar contenido sin borrar tabla
+    # Vaciar tabla manteniendo el schema
     bq.query(f"TRUNCATE TABLE `{TABLE_STORES}`").result()
 
-    # Insertar todas las filas a la vez
+    # Insertar filas
     errors = bq.insert_rows_json(TABLE_STORES, rows)
+
+    if errors:
+        return {"error": errors}
+
+    return {"ok": True, "rows": len(rows)}
+
 
     if errors:
         return {"error": errors}
