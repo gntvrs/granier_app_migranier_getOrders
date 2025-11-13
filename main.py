@@ -66,14 +66,16 @@ def insert_order(order_json: dict):
 
     row_raw = {
         "order_id": order.get("id"),
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.utcnow().isoformat(),
         "store_id": store.get("id"),
         "amount": order.get("amount"),
         "status": order.get("status"),
         "payload": json.dumps(order_json, ensure_ascii=False),
     }
 
-    bq.insert_rows_json(TABLE_RAW, [row_raw])
+    errors = bq.insert_rows_json(TABLE_RAW, [row_raw])
+    if errors:
+        raise RuntimeError(f"Error insertando RAW: {errors}")
 
     items = []
     for s in suppliers:
@@ -93,7 +95,10 @@ def insert_order(order_json: dict):
             })
 
     if items:
-        bq.insert_rows_json(TABLE_ITMS, items)
+        errors2 = bq.insert_rows_json(TABLE_ITMS, items)
+        if errors2:
+            raise RuntimeError(f"Error insertando ITEMS: {errors2}")
+
 
 
 @app.get("/test_order/{order_id}")
