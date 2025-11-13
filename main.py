@@ -17,6 +17,7 @@ BQ_DATASET = "granier_app_migranier"
 TABLE_CTRL = f"{BQ_PROJECT}.{BQ_DATASET}.Control_Descarga_Pedidos"
 TABLE_RAW  = f"{BQ_PROJECT}.{BQ_DATASET}.Pedidos_App_Raw"
 TABLE_ITMS = f"{BQ_PROJECT}.{BQ_DATASET}.Pedidos_App_Items"
+TABLE_STORES = f"{BQ_PROJECT}.{BQ_DATASET}.Master_Tiendas"
 
 MAX_CONSECUTIVE_MISS = 50
 BATCH_MAX_IDS = 500
@@ -137,3 +138,41 @@ def run_incremental():
         set_last_id(max_inserted_id)
 
     return {"status": "ok", "desde_id": last_id, "hasta_id": max_inserted_id}
+
+@app.get("/sync_tiendas")
+def sync_tiendas():
+    """Descarga todas las tiendas desde la API Mi Granier y sincroniza con BigQuery."""
+    url = f"{API_BASE}/master-tiendas?per_page=5000"
+    r = requests.get(url, headers=HEADERS)
+    r.raise_for_status()
+    data = r.json().get("data", [])
+
+    rows = []
+    now = datetime.utcnow().isoformat()
+
+    for t in data:
+        rows.append({
+            "store_id": t.get("id"),
+            "email": t.get("email"),
+            "marketing_emails": t.get("marketing_emails"),
+            "dest_merc": t.get("dest_merc"),
+            "zona_ventas": t.get("zona_ventas"),
+            "cliente_unico": t.get("cliente_unico"),
+            "store_name": t.get("store_name"),
+            "address": t.get("address"),
+            "city": t.get("city"),
+            "franquiciado": t.get("franquiciado"),
+            "phone1": t.get("phone1"),
+            "phone2": t.get("phone2"),
+            "updated_at": now
+        })
+
+    bq.delete_table(TABLE_STORES, not_found_ok=True)
+    bq.create_table(bigquery.Table(TABLE_STORES))
+
+    errors = bq.insert_rows_json(TABLE_STORES, rows)
+    if errors:
+        return {"error": errors}
+
+    return {"ok": True, "rows": len(rows)}
+
